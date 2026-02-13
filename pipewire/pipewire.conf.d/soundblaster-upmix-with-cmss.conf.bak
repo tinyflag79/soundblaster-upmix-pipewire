@@ -1,0 +1,360 @@
+#
+# Author tinyflag
+# Date 2026-02-13
+# Name soundblaster upmix with cmss_ent
+# Description upmix Surround enhanced using buttworth and hilbert
+#
+
+context.properties = {
+    resample.quality = 10
+}
+context.modules = [
+{   name = libpipewire-module-filter-chain
+    args = {
+        node.description = "SoundBlaster SBX 5.1"
+        media.name       = "SoundBlaster SBX 5.1"
+        filter.graph = {
+            nodes = [
+                # Bridge nodes to accept Stereo input
+                { type = builtin label = copy name = keepL }
+                { type = builtin label = copy name = keepR }
+
+                # 1. Rear Ambience Extraction (L-R and R-L)
+                {
+                        name   = mixRL
+                        type   = builtin
+                        label  = mixer
+                        control = { "Gain 1" = 1.0 "Gain 2" = -1.0 }
+                }
+                {
+                        name   = mixRR
+                        type   = builtin
+                        label  = mixer
+                        control = { "Gain 1" = 1.0 "Gain 2" = -1.0 }
+                }
+
+
+                # 1a. use Allpass to remove Center sound from Rear
+                {
+                    type = lv2
+                    name = rear_ap_L
+                    plugin = "http://lsp-plug.in/plugins/lv2/filter_mono"
+                    control = {
+                        "ft" = 10        # 10 is the magic number for Allpass
+                        "f"  = 1000      # Center frequency for Left
+                        "q"  = 0.7       # Resonance/Width
+                    }
+                }
+                # 1b. use Allpass to remove Center sound from Rear
+                {
+                    type = lv2
+                    name = rear_ap_R
+                    plugin = "http://lsp-plug.in/plugins/lv2/filter_mono"
+                    control = {
+                        "ft" = 10        # Allpass
+                        "f"  = 1400      # Slightly different frequency for Right
+                        "q"  = 0.7
+                    }
+                }
+
+                # 2. Hilbert Phase Shifting (The 3D bubble effect)
+                {
+                       type = builtin
+                       name = hilRL
+                       label = convolver
+                       config = {
+                           filename = "/hilbert"
+                           length = 1024
+                           delay = 0.015
+                           gain = 1.0
+                       }
+                }
+                {
+                       type = builtin
+                       name = hilRR
+                       label = convolver
+                       config = {
+                           filename = "/hilbert"
+                           length = 1024
+                           delay = 0.015
+                           gain = -1.0
+                       }
+                }
+
+
+                # 3. Rear High Pass Low Pass stereo split
+                {
+                    name = rear_lpL
+                    type = ladspa
+                    plugin = /usr/lib/ladspa/butterworth_1902.so
+                    label = buttlow_iir
+                    control = {
+                        "Cutoff Frequency (Hz)" = 6500
+                        "Resonance" = 0.707
+                    }
+                }
+                {
+                    name = rear_hpL
+                    type = ladspa
+                    plugin = /usr/lib/ladspa/butterworth_1902.so
+                    label = butthigh_iir
+                    control = {
+                        "Cutoff Frequency (Hz)" = 500
+                        "Resonance" = 0.707
+                    }
+                }
+                {
+                    name = rear_lpR
+                    type = ladspa
+                    plugin = /usr/lib/ladspa/butterworth_1902.so
+                    label = buttlow_iir
+                    control = {
+                        "Cutoff Frequency (Hz)" = 6500
+                        "Resonance" = 0.707
+                    }
+                }
+                {
+                    name = rear_hpR
+                    type = ladspa
+                    plugin = /usr/lib/ladspa/butterworth_1902.so
+                    label = butthigh_iir
+                    control = {
+                        "Cutoff Frequency (Hz)" = 500
+                        "Resonance" = 0.707
+                    }
+                }
+
+                # 4. Extract the "Rear-only" signal for use in other
+                {
+                    name   = mixRearLogic
+                    type   = builtin
+                    label  = mixer
+                }
+
+
+                # 5a. Gain for Rear
+                { type = ladspa
+                    plugin = "/usr/lib/ladspa/amp.so"
+                    label  = "amp_mono"
+                    name = rear_gain_L
+                        control = { "Gain" = 1.1 }
+                }
+                # 5b. Gain for Rear
+                { type = ladspa
+                    plugin = "/usr/lib/ladspa/amp.so"
+                    label  = "amp_mono"
+                    name = rear_gain_R
+                        control = { "Gain" = 1.1 }
+                }
+
+                #
+                # --- CENTER SOUND SECTION ---
+                #
+
+                # 5. Build the Center by subtracting that Rear signal
+                {
+                    name   = mixCenterSubRear
+                    type   = builtin
+                    label  = mixer
+                    control = {
+                        "Gain 1" = 0.6   # Left
+                        "Gain 2" = 0.6   # Right
+                        "Gain 3" = -0.38  # Subtract the Rear Logic to "duck" the center
+                    }
+                }
+
+
+
+                # 6. Center Channel Boost
+                {
+                    type = builtin
+                    name = eq_Center_Boost
+                    label = param_eq
+                    config = {
+                        filters1 = [
+                            { type = bq_lowpass freq = 8000 },
+                            # This adds +4 decibels specifically to the Center channel
+                            { type = bq_highshelf freq = 0 gain = 6.0 }
+                        ]
+                    }
+                }
+
+                #
+                # --- FRONT LEFT RIGHT SOUND SECTION ---
+                #
+
+                # 7. Front Channel Extraction (L - 0.5C / R - 0.5C)
+                {
+                        name   = subFL
+                        type   = builtin
+                        label  = mixer
+                        control = { "Gain 1" = 1.0 "Gain 2" = -0.5 }
+                }
+                {
+                        name   = subFR
+                        type   = builtin
+                        label  = mixer
+                        control = { "Gain 1" = 1.0 "Gain 2" = -0.5 }
+                }
+
+
+
+                #
+                # --- LFE BASS SOUND SECTION ---
+                #
+                # Low-pass front left
+                {
+                        type   = ladspa
+                        name   = lfe_lp_FL
+                        plugin = "/usr/lib/ladspa/butterworth_1902.so"
+                        label  = "buttlow_iir"
+                        control = { "Cutoff Frequency (Hz)" = 120 "Resonance" = 0.707 }
+                }
+
+                # Low-pass front right
+                {
+                        type   = ladspa
+                        name   = lfe_lp_FR
+                        plugin = "/usr/lib/ladspa/butterworth_1902.so"
+                        label  = "buttlow_iir"
+                        control = { "Cutoff Frequency (Hz)" = 120 "Resonance" = 0.707 }
+                }
+
+                # Mixer to sum channels
+                {
+                        type = builtin
+                        name = lfe_sum
+                        label = mixer
+                        control = { "Gain 1" = 1.0 "Gain 2" = 1.0 "Gain 3" = 1.0 } # FL + FR + FC
+                }
+
+
+
+
+
+                # 6. High-Pass Filter for Rears (Focusing spatial cues)
+                {
+                        type = builtin
+                        name = eq_Rears
+                        label = param_eq
+                        config = {
+                            filters1 = [ { type = bq_highpass freq = 200 } ]
+                            filters2 = [ { type = bq_highpass freq = 200 } ]
+                        }
+                }
+
+
+
+                # We create 6 individual convolvers, one for each speaker
+                # This stops the "14-channel error" because each node only takes 1 channel
+                { type = builtin label = convolver name = convFL config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 0 gain = 1.4} }
+                { type = builtin label = convolver name = convFR config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 3 gain = 1.4} }
+                { type = builtin label = convolver name = convFC config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 8 gain = 1.2} }
+                { type = builtin label = convolver name = convRL config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 4 gain = 0.3} }
+                { type = builtin label = convolver name = convRR config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 7 gain = 0.3} }
+                { type = builtin label = convolver name = convLFE config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 8 gain = 2.0 } }
+
+
+
+            ]
+
+            # Now we "wire" those 2 inputs to the 6 filter nodes
+            links = [
+
+
+                # REAR: Extract Rear Ambience (L-R / R-L)
+                { output = "keepL:Out"  input="rear_gain_L:Input" }
+                { output = "keepR:Out"  input="rear_gain_R:Input" }
+
+                { output = "rear_gain_L:Output"  input="mixRL:In 1" }
+                { output = "rear_gain_R:Output"  input="mixRL:In 2" }
+                { output = "rear_gain_R:Output"  input="mixRR:In 1" }
+                { output = "rear_gain_L:Output"  input="mixRR:In 2" }
+
+                # REAR: Extract Rear Sound for Center
+                { output = "mixRL:Out" input = "mixRearLogic:In 1" }
+                { output = "mixRR:Out" input = "mixRearLogic:In 2" }
+
+                # REAR: Allpass to remove Center sound
+                { output = "mixRL:Out"  input="rear_ap_L:in" }
+                { output = "mixRR:Out"  input="rear_ap_R:in" }
+
+                # REAR: Hilbert Phase Shifting
+                { output = "rear_ap_L:out"  input="hilRL:In" }
+                { output = "rear_ap_R:out"  input="hilRR:In" }
+
+                # REAR: Rear LEFT High Pass Low Pass stereo split
+                { output = "hilRL:Out"  input="rear_lpL:Input" }
+                { output = "rear_lpL:Output"  input="rear_hpL:Input" }
+
+                # REAR: Rear RIGHT High Pass Low Pass stereo split
+                { output = "hilRR:Out"  input="rear_lpR:Input" }
+                { output = "rear_lpR:Output"  input="rear_hpR:Input" }
+
+                # REAR: Rear gain boost
+                # { output = "rear_hpL:Output"  input="rear_gain_L:Input" }
+                # { output = "rear_hpR:Output"  input="rear_gain_R:Input" }
+
+
+                # CENTER: Create Center Sound
+                { output = "keepL:Out" input = "mixCenterSubRear:In 1" }
+                { output = "keepR:Out" input = "mixCenterSubRear:In 2" }
+                { output = "mixRearLogic:Out" input = "mixCenterSubRear:In 3" }
+
+                # CENTER: Boost
+                { output = "mixCenterSubRear:Out"  input="eq_Center_Boost:In 1" }
+
+
+                # FRONT: Clean Fronts by subtracting Center
+                { output = "keepL:Out"     input="subFL:In 1" }
+                { output = "mixCenterSubRear:Out"     input="subFL:In 2" }
+                { output = "keepR:Out"     input="subFR:In 1" }
+                { output = "mixCenterSubRear:Out"     input="subFR:In 2" }
+
+
+
+                # LFE BASS: Create LFE Sound
+                { output = "keepL:Out" input = "lfe_lp_FL:Input" }
+                { output = "keepR:Out" input = "lfe_lp_FR:Input" }
+
+                { output = "lfe_lp_FL:Output" input = "lfe_sum:In 1" }
+                { output = "lfe_lp_FR:Output" input = "lfe_sum:In 2" }
+                { output = "mixCenterSubRear:Out" input = "lfe_sum:In 3" }
+
+
+
+
+                # FINAL APPLY to FINAL CHANNELS  ---
+                { output = "subFL:Out" input = "convFL:In" }
+                { output = "subFR:Out" input = "convFR:In" }
+                { output = "rear_hpL:Output"  input="convRL:In" }
+                { output = "rear_hpR:Output"  input="convRR:In" }
+
+
+                # --- Step 4: Mixers to Center/Sub Convolvers ---
+                { output = "eq_Center_Boost:Out 1"  input = "convFC:In" }
+                { output = "lfe_sum:Out" input = "convLFE:In" }
+            ]
+
+            inputs  = [ "keepL:In" "keepR:In" ]
+            outputs = [ "convFL:Out" "convFR:Out" "convFC:Out" "convLFE:Out" "convRL:Out" "convRR:Out" ]
+        }
+        capture.props = {
+            node.name      = "sbx_input"
+            media.class    = Audio/Sink
+            audio.channels = 2
+            audio.position = [ FL FR ]
+            node.force-rate = 48000
+        }
+        playback.props = {
+            node.name      = "sbx_output"
+            node.passive   = true
+            audio.channels = 6
+            audio.position = [ FL FR FC LFE RL RR ]
+            #node.target = "@DEFAULT_SINK@"
+            node.force-rate = 48000
+            stream.dont-remix = true
+        }
+    }
+}
+]
