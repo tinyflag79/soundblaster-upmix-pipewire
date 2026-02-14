@@ -1,3 +1,10 @@
+# WHAT is inside of conf
+  - pipeware function and feature
+  - plugin 
+      - ladspa 
+      - lv2
+  - Surround Virtualizations from hesvui
+  
 # HOW TO INSTALL  
 
   - make dir /usr/local/share/sbx4-sfx/filter/
