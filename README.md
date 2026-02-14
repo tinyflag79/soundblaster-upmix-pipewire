@@ -1,4 +1,4 @@
-# WHAT is inside of conf
+# WHAT is used inside of conf
   - pipeware function and feature
   - plugin 
       - ladspa 
