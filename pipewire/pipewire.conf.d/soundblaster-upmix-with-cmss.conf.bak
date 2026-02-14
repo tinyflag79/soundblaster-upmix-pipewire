@@ -2,7 +2,7 @@
 # Author tinyflag
 # Date 2026-02-13
 # Name soundblaster upmix with cmss_ent
-# Description upmix Surround enhanced using buttworth and hilbert
+# Description upmix Surround enhanced using butter worth and hilbert
 #
 
 context.properties = {
