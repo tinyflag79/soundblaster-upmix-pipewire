@@ -6,7 +6,7 @@
   - Surround Virtualizations from hesvui
   
 # HOW TO INSTALL  
-  - Artix Linux Support additional step
+  - Artix Linux Support, additional step
       - update RTKIT it set sound processing to be more smooth
         ```
         i got this hint from chatgpt when i having problem on sound feel like delay and echoing
