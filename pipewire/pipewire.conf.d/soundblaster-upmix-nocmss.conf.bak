@@ -1,9 +1,13 @@
 #
 # Author tinyflag
-# Date 2026-02-13
-# Name soundblaster upmix with cmss_ent
+# Date 2026-04-18
+# Name soundblaster upmix without cmss_ent
 # Description upmix Surround enhanced using butter worth and hilbert
+#             add gain control for each channel 
+#             adjust gain for suitable sound that reach to you, different size of room might be different gain on each front center and rear sound 
 #
+
+
 
 context.properties = {
     resample.quality = 10
@@ -19,34 +23,22 @@ context.modules = [
                 { type = builtin label = copy name = keepL }
                 { type = builtin label = copy name = keepR }
 
+                 
+                #
+                # --- REAR SOUND SECTION ---
+                #
                 # 7.0. Front Channel Extraction using para eq
                 {
                     type   = lv2
                     name   = cleanRLR
                     plugin = "http://lsp-plug.in/plugins/lv2/para_equalizer_x8_ms"
                     control = {
-                        "lstn" = 0.0     # 0.0 = Standard Stereo Output
-                        "gain_m" = 0.46   # Mute the Center (Vocals)
+                        "lstn" = 1.0     # 0.0 = Standard Stereo Output
+                        "gain_m" = 0.3   # Mute the Center (Vocals)
                         "gain_s" = 1.0   # Keep the Stereo Sides
                     }
                 }
                 
-                
-                # 1. Rear Ambience Extraction (L-R and R-L)
-                {
-                        name   = mixRL
-                        type   = builtin
-                        label  = mixer
-                        control = { "Gain 1" = 1.0 "Gain 2" = -1.0 }
-                }
-                {
-                        name   = mixRR
-                        type   = builtin
-                        label  = mixer
-                        control = { "Gain 1" = 1.0 "Gain 2" = -1.0 }
-                }
-
-
                 # 1a. use Allpass to remove Center sound from Rear
                 {
                     type = lv2
@@ -150,40 +142,33 @@ context.modules = [
                     plugin = "/usr/lib/ladspa/amp.so"
                     label  = "amp_mono"
                     name = rear_gain_L
-                        control = { "Gain" = 1.1 }
+                        control = { "Gain" = 0.4 }
                 }
                 # 5b. Gain for Rear
                 { type = ladspa
                     plugin = "/usr/lib/ladspa/amp.so"
                     label  = "amp_mono"
                     name = rear_gain_R
-                        control = { "Gain" = 1.2 }
+                        control = { "Gain" = 0.4 }
                 }
 
+                
+                
                 #
                 # --- CENTER SOUND SECTION ---
                 #
-
                 # 5. Build the Center by subtracting that Rear signal
                 {
                     name   = mixCenterSubRear
                     type   = builtin
                     label  = mixer
                     control = {
-                        "Gain 1" = 0.6   # Left
-                        "Gain 2" = 0.6   # Right
-                        "Gain 3" = -0.38  # Subtract the Rear Logic to "duck" the center
+                        "Gain 1" = 0.8   # Left
+                        "Gain 2" = 0.8   # Right
+                        "Gain 3" = -0.4  # Subtract the Rear Logic to "duck" the center
                     }
                 }
 
-                # 5. Build the Center by subtracting that Rear signal one source
-                {
-                        name   = mixCenterSubRearOneSource
-                        type   = builtin
-                        label  = mixer
-                        control = { "Gain 1" = 1.0 "Gain 2" = -0.40 }
-                }                
-                
 
                 # Node 2: Extract Mid signal (Vocals only)
                 {
@@ -210,6 +195,14 @@ context.modules = [
                         ]
                     }
                 }
+                
+                # 5b. Gain for center silent test
+                { type = ladspa
+                    plugin = "/usr/lib/ladspa/amp.so"
+                    label  = "amp_mono"
+                    name = center_gain_C
+                        control = { "Gain" = 0.6 }
+                }                
 
                 #
                 # --- FRONT LEFT RIGHT SOUND SECTION ---
@@ -220,27 +213,30 @@ context.modules = [
                         name   = subFL
                         type   = builtin
                         label  = mixer
-                        control = { "Gain 1" = 1.0 "Gain 2" = -0.5 }
+                        control = { "Gain 1" = 1.0 "Gain 2" = -0.6 }
                 }
                 {
                         name   = subFR
                         type   = builtin
                         label  = mixer
-                        control = { "Gain 1" = 1.0 "Gain 2" = -0.5 }
+                        control = { "Gain 1" = 1.0 "Gain 2" = -0.6 }
                 }
 
-
-                # Node 2: Extract Side signal (Music)
-                {
-                    type   = lv2
-                    name   = side_extract
-                    plugin = "http://lsp-plug.in/plugins/lv2/para_equalizer_x8_ms"
-                    control = {
-                        "lstn" = 1.0    # Enable Mid/Side Listen
-                        "gain_m" = 0.4  # Keep the Mid (Vocals)
-                        "gain_s" = 1.0  # Mute the Side (Music) on this node
-                    }
+                # 5a. Gain for FRONT
+                { type = ladspa
+                    plugin = "/usr/lib/ladspa/amp.so"
+                    label  = "amp_mono"
+                    name = front_gain_L
+                        control = { "Gain" = 1.3 }
                 }
+                # 5b. Gain for FRONT
+                { type = ladspa
+                    plugin = "/usr/lib/ladspa/amp.so"
+                    label  = "amp_mono"
+                    name = front_gain_R
+                        control = { "Gain" = 1.3 }
+                }
+                
 
                 #
                 # --- LFE BASS SOUND SECTION ---
@@ -268,7 +264,7 @@ context.modules = [
                         type = builtin
                         name = lfe_sum
                         label = mixer
-                        control = { "Gain 1" = 1.0 "Gain 2" = 1.0 "Gain 3" = 1.0 } # FL + FR + FC
+                        control = { "Gain 1" = 0.4 "Gain 2" = 0.4 "Gain 3" = 0.2 } # FL + FR + FC
                 }
 
 
@@ -285,19 +281,14 @@ context.modules = [
                             filters2 = [ { type = bq_highpass freq = 200 } ]
                         }
                 }
- 
 
-
-                # We create 6 individual convolvers, one for each speaker
-                # This stops the "14-channel error" because each node only takes 1 channel
-                { type = builtin label = convolver name = convFL config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 0 gain = 1.2} }
-                { type = builtin label = convolver name = convFR config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 2 gain = 1.2} }
-                { type = builtin label = convolver name = convFC config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 5 gain = 1.0} }
-                { type = builtin label = convolver name = convRR config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 8 gain = 0.33} }
-                { type = builtin label = convolver name = convRL config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 6 gain = 0.23} }
-                { type = builtin label = convolver name = convLFE config = { filename = "/usr/local/share/sbx4-sfx/filter/cmss_ent.wav" channel = 5 gain = 1.8 } }
-
-
+                # Nodes for OUTPUT
+                { name = convFL type = builtin label = copy }
+                { name = convFR type = builtin label = copy }
+                { name = convFC type = builtin label = copy }
+                { name = convLFE type = builtin label = copy }
+                { name = convRL type = builtin label = copy }
+                { name = convRR type = builtin label = copy }
 
             ]
 
@@ -309,14 +300,8 @@ context.modules = [
                 { output = "keepL:Out"  input="rear_gain_L:Input" }
                 { output = "keepR:Out"  input="rear_gain_R:Input" }
 
-                # { output = "rear_gain_L:Output"  input="mixRL:In 1" }
-                # { output = "rear_gain_R:Output"  input="mixRL:In 2" }
-                # { output = "rear_gain_R:Output"  input="mixRR:In 1" }
-                # { output = "rear_gain_L:Output"  input="mixRR:In 2" }
-
                 { output = "rear_gain_L:Output"  input="cleanRLR:in_l" }
                 { output = "rear_gain_R:Output"  input="cleanRLR:in_r" }
-                
                 
                 # REAR: Extract Rear Sound for Center
                 { output = "cleanRLR:out_l" input = "mixRearLogic:In 1" }
@@ -339,27 +324,33 @@ context.modules = [
                 { output = "rear_lpR:Output"  input="rear_hpR:Input" }
 
 
+
                 # CENTER: Create Center Sound
                 { output = "keepL:Out" input = "vocal_extract:in_l" }
                 { output = "keepR:Out" input = "vocal_extract:in_r" }
+                
+                # CENTER: Create Center Sound
+                { output = "vocal_extract:out_l" input = "mixCenterSubRear:In 1" }
+                { output = "vocal_extract:out_r" input = "mixCenterSubRear:In 2" }
+                { output = "mixRearLogic:Out" input = "mixCenterSubRear:In 3" }
                 
                 { output = "vocal_extract:out_l" input = "mixCenterSubRearOneSource:In 1" }
                 { output = "mixRearLogic:Out" input = "mixCenterSubRearOneSource:In 2" }
 
                 
                 # CENTER: Boost
-                { output = "mixCenterSubRearOneSource:Out"  input="eq_Center_Boost:In 1" }
+                { output = "mixCenterSubRear:Out"  input="eq_Center_Boost:In 1" }
+                { output = "eq_Center_Boost:Out 1"  input="center_gain_C:Input" }
 
 
-                # FRONT: Clean Fronts by subtracting Center
-      
-                { output = "keepL:Out"     input="side_extract:in_l" }
-                { output = "keepR:Out"     input="side_extract:in_r" }
-                
-                # { output = "keepL:Out"     input="subFL:In 1" }
-                # { output = "mixCenterSubRearOneSource:Out"     input="subFL:In 2" }
-                # { output = "keepR:Out"     input="subFR:In 1" }
-                # { output = "mixCenterSubRearOneSource:Out"     input="subFR:In 2" }
+                # FRONT LR: Clean up
+                { output = "keepL:Out"     input="subFL:In 1" }
+                { output = "mixCenterSubRear:Out"     input="subFL:In 2" }
+                { output = "keepR:Out"     input="subFR:In 1" }
+                { output = "mixCenterSubRear:Out"     input="subFR:In 2" }
+
+                { output = "subFL:Out"     input="front_gain_L:Input" }
+                { output = "subFR:Out"     input="front_gain_R:Input" }
 
 
 
@@ -372,17 +363,15 @@ context.modules = [
                 { output = "mixCenterSubRear:Out" input = "lfe_sum:In 3" }
 
 
-
-
                 # FINAL APPLY to FINAL CHANNELS  ---
-                { output = "side_extract:out_l" input = "convFL:In" }
-                { output = "side_extract:out_r" input = "convFR:In" }
+                { output = "front_gain_L:Output" input = "convFL:In" }
+                { output = "front_gain_R:Output" input = "convFR:In" }
                 { output = "rear_hpL:Output"  input="convRL:In" }
                 { output = "rear_hpR:Output"  input="convRR:In" }
 
 
                 # --- Step 4: Mixers to Center/Sub Convolvers ---
-                { output = "eq_Center_Boost:Out 1"  input = "convFC:In" }
+                { output = "center_gain_C:Output"  input = "convFC:In" }
                 { output = "lfe_sum:Out" input = "convLFE:In" }
             ]
 
@@ -408,4 +397,3 @@ context.modules = [
     }
 }
 ]
-
