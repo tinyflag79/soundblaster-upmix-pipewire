@@ -142,14 +142,14 @@ context.modules = [
                     plugin = "/usr/lib/ladspa/amp.so"
                     label  = "amp_mono"
                     name = rear_gain_L
-                        control = { "Gain" = 0.4 }
+                        control = { "Gain" = 0.6 }
                 }
                 # 5b. Gain for Rear
                 { type = ladspa
                     plugin = "/usr/lib/ladspa/amp.so"
                     label  = "amp_mono"
                     name = rear_gain_R
-                        control = { "Gain" = 0.4 }
+                        control = { "Gain" = 0.6 }
                 }
 
                 
@@ -201,7 +201,7 @@ context.modules = [
                     plugin = "/usr/lib/ladspa/amp.so"
                     label  = "amp_mono"
                     name = center_gain_C
-                        control = { "Gain" = 0.6 }
+                        control = { "Gain" = 0.4 }
                 }                
 
                 #
@@ -227,14 +227,14 @@ context.modules = [
                     plugin = "/usr/lib/ladspa/amp.so"
                     label  = "amp_mono"
                     name = front_gain_L
-                        control = { "Gain" = 1.3 }
+                        control = { "Gain" = 0.8 }
                 }
                 # 5b. Gain for FRONT
                 { type = ladspa
                     plugin = "/usr/lib/ladspa/amp.so"
                     label  = "amp_mono"
                     name = front_gain_R
-                        control = { "Gain" = 1.3 }
+                        control = { "Gain" = 0.8 }
                 }
                 
 
